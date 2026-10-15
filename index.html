@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Koyra Baseline Participants Map</title>
-<link rel="stylesheet" href="assets/leaflet/leaflet.css">
+<link rel="stylesheet" href="leaflet.css">
 <style>
   html, body { height: 100%; margin: 0; background: #f4f6f8; font-family: Arial, Helvetica, sans-serif; overflow: hidden; }
   .map-title { text-align: center; font-weight: 700; font-size: 20px; color: #1f2937; margin: 0; padding: 8px 10px; line-height: 1.25; height: 36px; box-sizing: content-box; }
@@ -35,6 +35,8 @@
   .btn-row button:hover { background: #e8edf2; }
   .summary-box { background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 6px; padding: 8px; font-size: 11px; white-space: pre-wrap; max-height: 330px; overflow-y: auto; }
 
+  .leaflet-control-layers-toggle { background-image: url(layers.png); }
+  .leaflet-retina .leaflet-control-layers-toggle { background-image: url(layers-2x.png); }
   .leaflet-container { background: #e9edf1; border: 1px solid #d9dee5; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
   .leaflet-popup-content { font-size: 12px; line-height: 1.45; max-height: min(64vh, 480px); overflow-y: auto; margin: 10px 14px; }
   .leaflet-control-layers { width: 310px; max-width: 34vw; font-family: Arial, sans-serif; font-size: 12px; border-radius: 6px; }
@@ -93,12 +95,12 @@
   <div class="map-column"><div id="map"></div></div>
 </div>
 
-<script src="assets/leaflet/leaflet.js"></script>
-<script src="data/meta.js"></script>
-<script src="data/boundary.js"></script>
-<script src="data/participants.js"></script>
-<script src="data/water_sources.js"></script>
-<script src="data/actors.js"></script>
+<script src="leaflet.js"></script>
+<script src="meta.js"></script>
+<script src="boundary.js"></script>
+<script src="participants.js"></script>
+<script src="water_sources.js"></script>
+<script src="actors.js"></script>
 <script>
 (function () {
   "use strict";
