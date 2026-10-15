@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Koyra Baseline Participants Map</title>
+<link rel="stylesheet" href="assets/leaflet/leaflet.css">
+<style>
+  html, body { height: 100%; margin: 0; background: #f4f6f8; font-family: Arial, Helvetica, sans-serif; overflow: hidden; }
+  .map-title { text-align: center; font-weight: 700; font-size: 20px; color: #1f2937; margin: 0; padding: 8px 10px; line-height: 1.25; height: 36px; box-sizing: content-box; }
+  .main-row { display: flex; gap: 10px; height: calc(100vh - 52px); padding: 0 10px 10px 10px; box-sizing: border-box; }
+  .sidebar-column { flex: 0 0 17%; min-width: 230px; max-width: 320px; height: 100%; }
+  .map-column { flex: 1 1 auto; min-width: 0; height: 100%; }
+  #map { height: 100%; width: 100%; }
+
+  .filter-panel { height: 100%; box-sizing: border-box; background: #fff; border: 1px solid #d9dee5; border-radius: 8px; padding: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.08); overflow-y: auto; }
+  .filter-panel h4 { margin: 0 0 8px 0; font-size: 15px; font-weight: 700; color: #263238; }
+  .filter-help { font-size: 11px; color: #667085; margin-bottom: 8px; }
+  .filter-panel hr { border: 0; border-top: 1px solid #e5e7eb; margin: 14px 0; }
+
+  /* multi-select (chips + searchable dropdown), mirrors the former selectize inputs */
+  .ms { position: relative; margin-bottom: 8px; }
+  .ms-box { border: 1px solid #ccc; border-radius: 4px; padding: 4px; background: #fff; max-height: 190px; overflow-y: auto; font-size: 11px; cursor: text; display: flex; flex-wrap: wrap; gap: 4px; }
+  .ms-chip { background: #efefef; border: 1px solid #d0d0d0; border-radius: 3px; padding: 2px 4px 2px 6px; display: inline-flex; align-items: center; gap: 4px; line-height: 1.5; }
+  .ms-chip button { border: 0; background: transparent; cursor: pointer; font-size: 12px; line-height: 1; padding: 0 2px; color: #555; }
+  .ms-chip button:hover { color: #b00020; }
+  .ms-input { border: 0; outline: 0; flex: 1 1 80px; min-width: 60px; font-size: 11px; padding: 2px; background: transparent; }
+  .ms-drop { position: absolute; z-index: 2000; left: 0; right: 0; top: 100%; background: #fff; border: 1px solid #b8c0c8; border-radius: 0 0 4px 4px; max-height: 220px; overflow-y: auto; box-shadow: 0 4px 10px rgba(0,0,0,.15); display: none; font-size: 11px; }
+  .ms.open .ms-drop { display: block; }
+  .ms-opt { padding: 5px 8px; cursor: pointer; }
+  .ms-opt:hover, .ms-opt.active { background: #e8f0fe; }
+  .ms-empty { padding: 6px 8px; color: #888; }
+  .btn-row { display: flex; gap: 6px; margin-bottom: 4px; }
+  .btn-row button { flex: 1; padding: 5px 6px; font-size: 11px; border: 1px solid #b8c0c8; border-radius: 4px; background: #f7f8fa; cursor: pointer; }
+  .btn-row button:hover { background: #e8edf2; }
+  .summary-box { background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 6px; padding: 8px; font-size: 11px; white-space: pre-wrap; max-height: 330px; overflow-y: auto; }
+
+  .leaflet-container { background: #e9edf1; border: 1px solid #d9dee5; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  .leaflet-popup-content { font-size: 12px; line-height: 1.45; max-height: min(64vh, 480px); overflow-y: auto; margin: 10px 14px; }
+  .leaflet-control-layers { width: 310px; max-width: 34vw; font-family: Arial, sans-serif; font-size: 12px; border-radius: 6px; }
+  .leaflet-control-layers-list { max-height: 78vh; overflow-y: auto; overflow-x: hidden; }
+  .leaflet-control-layers-base { padding-bottom: 7px; margin-bottom: 4px; border-bottom: 1px solid #d9d9d9; }
+  .layer-master-actions, .layer-section-actions { display: flex; gap: 5px; }
+  .layer-master-actions { position: sticky; top: 0; z-index: 4; padding: 7px 0 9px 0; background: rgba(255,255,255,.98); border-bottom: 1px solid #d9d9d9; }
+  .layer-master-actions button, .layer-section-actions button { flex: 1; border: 1px solid #b8c0c8; border-radius: 4px; background: #f7f8fa; cursor: pointer; }
+  .layer-master-actions button { padding: 5px 7px; font-size: 11px; }
+  .layer-section-actions button { padding: 2px 6px; font-size: 10px; }
+  .layer-master-actions button:hover, .layer-section-actions button:hover { background: #e8edf2; }
+  .layer-section-header { margin: 8px -6px 5px -6px; padding: 7px 6px 6px 6px; background: #eef3f7; border-top: 1px solid #d5dde5; border-bottom: 1px solid #d5dde5; }
+  .layer-section-title { font-weight: 700; color: #263746; margin-bottom: 5px; }
+  .grouped-layer-row { display: block; padding: 2px 0; margin: 0; }
+  .grouped-layer-row-inner { display: grid; grid-template-columns: 17px 18px minmax(0, 1fr); align-items: center; gap: 6px; line-height: 1.2; }
+  .grouped-layer-row input { margin: 0; }
+  .layer-symbol { position: relative; width: 13px; height: 13px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid rgba(255,255,255,.95); box-shadow: 0 0 0 1px rgba(0,0,0,.22); box-sizing: border-box; color: #fff; font-size: 8px; font-weight: 700; line-height: 1; }
+  .layer-symbol-circle { border-radius: 50%; }
+  .layer-symbol-square { border-radius: 3px; }
+  .layer-symbol-diamond { transform: rotate(45deg); border-radius: 2px; }
+  .layer-symbol-diamond .layer-symbol-text { transform: rotate(-45deg); }
+  .layer-display-text { min-width: 0; overflow-wrap: anywhere; color: #222; }
+
+  @media (max-width: 992px) {
+    html, body { overflow: auto; }
+    .main-row { flex-direction: column; height: auto; min-height: 100vh; }
+    .sidebar-column { flex: none; max-width: none; width: 100%; height: auto; }
+    .filter-panel { height: auto; }
+    .map-column { height: 70vh; width: 100%; flex: none; order: -1; }
+    .leaflet-control-layers { max-width: 62vw; width: 250px; }
+    .leaflet-control-layers-list { max-height: 55vh; }
+    .map-title { font-size: 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="map-title">Koyra Subdistrict: Baseline Participants, Intervention Actors and Water Sources Map</div>
+<div class="main-row">
+  <div class="sidebar-column">
+    <div class="filter-panel">
+      <h4>Community Clinic</h4>
+      <div class="filter-help">Search and select one or more community clinics. Cluster choices update from the selected clinics.</div>
+      <div id="ms-cc" class="ms"></div>
+      <div class="btn-row"><button type="button" id="cc-all">Select all CC</button><button type="button" id="cc-none">Clear all CC</button></div>
+      <hr>
+      <h4>Cluster</h4>
+      <div class="filter-help">Search and select one or more clusters (Q5_1Cluster_Name) under the selected clinics. The same selection filters participants, actors and water sources.</div>
+      <div id="ms-cl" class="ms"></div>
+      <div class="btn-row"><button type="button" id="cl-all">Select all</button><button type="button" id="cl-none">Clear all</button></div>
+      <hr>
+      <h4>Displayed records</h4>
+      <div class="summary-box" id="summary"></div>
+      <div class="filter-help" style="margin-top:8px">Public version: names, phone numbers, addresses and exact scores are removed, and household-level locations are randomly displaced. Points do not show exact homes.</div>
+    </div>
+  </div>
+  <div class="map-column"><div id="map"></div></div>
+</div>
+
+<script src="assets/leaflet/leaflet.js"></script>
+<script src="data/meta.js"></script>
+<script src="data/boundary.js"></script>
+<script src="data/participants.js"></script>
+<script src="data/water_sources.js"></script>
+<script src="data/actors.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  /* ---------- helpers ---------- */
+  function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
+  function val(v) { return (v === null || v === undefined || v === "") ? "NA" : esc(v); }          // participant popup: missing = "NA"
+  function valMissing(v) { return (v === null || v === undefined || v === "") ? "Missing" : esc(v); } // existing water/actor popup wording
+  function optLine(label, v) { return (v === null || v === undefined || v === "") ? "" : "<br><b>" + esc(label) + ":</b> " + esc(v); }
+  function line(label, v) { return "<b>" + esc(label) + ":</b> " + val(v); }
+  function rnd5(x) { return Math.round(x * 1e5) / 1e5; }
+
+  /* ---------- colours / labels (carried over from the Shiny app) ---------- */
+  var CAT_ORDER = ["HighCVD_HighSaline", "HighCVD_LowSaline", "LowCVD_HighSaline", "LowCVD_LowSaline"];
+  var CAT_COLORS = { "HighCVD_HighSaline": "#8B0000", "HighCVD_LowSaline": "#D73027", "LowCVD_HighSaline": "#08519C", "LowCVD_LowSaline": "#238B45" };
+  var ACTOR_COLORS = { "Women Group representative": "#F28E2B", "Rel_Mosque": "#2E8B57", "Teacher (School/Madrasa)": "#4E79A7", "Village Doctor": "#1B7F5A", "Rel_Temple": "#8E63A9", "Youth Club Representative": "#7B4AB5", "UP member": "#B23A48", "Village Police": "#4C8C9B", "UP member female": "#D96C9D", "Rel_Church": "#D9534F" };
+  var ACTOR_SYMBOL = { "Women Group representative": "WG", "Rel_Mosque": "MS", "Teacher (School/Madrasa)": "TR", "Village Doctor": "VD", "Rel_Temple": "TP", "Youth Club Representative": "YC", "UP member": "UP", "Village Police": "VP", "UP member female": "UF", "Rel_Church": "CH" };
+  var ACTOR_LABEL = { "Women Group representative": "Women Group (WG)", "Rel_Mosque": "Mosque (MS)", "Teacher (School/Madrasa)": "Teacher (TR)", "Village Doctor": "Village Doctor (VD)", "Rel_Temple": "Temple (TP)", "Youth Club Representative": "Youth Club (YC)", "UP member": "UP Member (UP)", "Village Police": "Village Police (VP)", "UP member female": "Female UP Member (UF)", "Rel_Church": "Church (CH)" };
+  var WATER_NAME = { ST: "Shallow Tubewell", DT: "Deep Tubewell", PD: "Pond", RO: "Reverse Osmosis", PSF: "Pond Sand Filter", RW: "Rainwater" };
+
+  function svgIcon(fill, text, shape) {
+    var s = shape === "diamond"
+      ? '<polygon points="10,1 19,10 10,19 1,10" fill="' + fill + '" stroke="#FFFFFF" stroke-width="1.4"/>'
+      : '<rect x="1" y="1" width="18" height="18" rx="4" fill="' + fill + '" stroke="#FFFFFF" stroke-width="1.4"/>';
+    var fs = text.length <= 1 ? 9 : (text.length === 2 ? 7.2 : 5.8);
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20">' + s +
+      '<text x="10" y="12.8" text-anchor="middle" font-family="Arial, sans-serif" font-size="' + fs + '" font-weight="700" fill="#FFFFFF">' + esc(text) + '</text></svg>';
+    return L.icon({ iconUrl: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg), iconSize: [18, 18], iconAnchor: [9, 9], popupAnchor: [0, -9] });
+  }
+  function waterColor(cat) { return /_HighSaline$/.test(cat) ? "#D73027" : (/_LowSaline$/.test(cat) ? "#08519C" : "#7F7F7F"); }
+  function waterLabel(cat) {
+    var ab = cat.split("_")[0];
+    var sal = /_HighSaline$/.test(cat) ? "High Saline" : (/_LowSaline$/.test(cat) ? "Low Saline" : (/_MissingEC$/.test(cat) ? "Missing EC" : "Unknown salinity"));
+    return (WATER_NAME[ab] || "Other Water Source") + " - " + sal + " (" + ab + ")";
+  }
+  function fmtEC(v) { return (v === null || v === undefined) ? null : String(v); }
+
+  /* ---------- popups ---------- */
+  var POPUP_ORDER = ["Category", "Age group", "Sex", "Water source", "Clinic", "Cluster", "Union"];
+  function participantPopup(p) { return POPUP_ORDER.map(function (k) { return line(k, p.p[k]); }).join("<br>") + "<br><i>Location approximate (randomly displaced 250&ndash;1000 m)</i>"; }
+  function waterPopup(w) {
+    var o = w.opt || {};
+    return "<b>Dataset:</b> Drinking-water source" +
+      "<br><b>Water Source ID:</b> " + valMissing(w.id) + "<br><b>Source Type:</b> " + valMissing(w.type) +
+      "<br><b>Source Type Abbreviation:</b> " + valMissing(w.abbr) + "<br><b>EC value:</b> " + valMissing(fmtEC(w.ec)) +
+      "<br><b>Salinity classification:</b> " + valMissing(w.sal) + "<br><b>Combined source-salinity category:</b> " + valMissing(w.cat) +
+      "<br><b>Village:</b> " + valMissing(w.vil) + "<br><b>Union:</b> " + valMissing(w.union) + "<br><b>Health Facility:</b> " + valMissing(w.cc) +
+      ["Ownership Type", "Establishment Year", "Functionality", "Source Depth", "Number of dependent households", "Salinity PPT", "Salinity category", "Salinity category (3-category)"].map(function (k) { return optLine(k, o[k]); }).join("") +
+      "<br><i>Location approximate (randomly displaced 100&ndash;300 m)</i>";
+  }
+  function actorPopup(a) {
+    var o = a.opt || {};
+    return "<b>Dataset:</b> Intervention actor<br><b>Stakeholder Type:</b> " + valMissing(a.type) + optLine("Institution", o["Institution"]) +
+      "<br><b>Designation:</b> " + valMissing(o["Designation"]) + "<br><b>Village:</b> " + valMissing(a.vil) + "<br><b>Union:</b> " + valMissing(a.union) +
+      "<br><b>Community Clinic:</b> " + valMissing(a.cc) +
+      (o["Institution"] ? "" : "<br><i>Location approximate (randomly displaced 100&ndash;300 m)</i>");
+  }
+
+  /* ---------- map ---------- */
+  var B = window.MAP_META.bbox;
+  var map = L.map("map", { preferCanvas: true, zoomControl: true });
+  var satellite = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, updateWhenIdle: false, keepBuffer: 4, attribution: "Tiles &copy; Esri" });
+  var street = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, updateWhenIdle: false, keepBuffer: 4, attribution: "&copy; OpenStreetMap contributors" });
+  satellite.addTo(map);
+  var boundary = L.geoJSON(window.KOYRA_BOUNDARY, { style: { color: "#FFD700", weight: 1.2, fill: false, opacity: 1 }, interactive: false }).addTo(map);
+  map.fitBounds([[B.ymin, B.xmin], [B.ymax, B.xmax]]);
+  L.control.scale({ position: "bottomleft" }).addTo(map);
+
+  /* ---------- layers + markers (created once; filters add/remove them) ---------- */
+  var groups = {}, meta = [];
+  function ensureGroup(name, section, label, colour, symbol, shape) {
+    if (!groups[name]) { groups[name] = L.layerGroup(); meta.push({ group: name, section: section, display_label: label, colour: colour, symbol: symbol, shape: shape }); }
+    return groups[name];
+  }
+  var items = [];   // {kind, rec, marker, group}
+  CAT_ORDER.forEach(function (c) { ensureGroup(c, "Participant categories", c.replace(/_/g, " "), CAT_COLORS[c], "", "circle"); });
+  window.PARTICIPANTS.forEach(function (p) {
+    var col = CAT_COLORS[p.cat];
+    var m = L.circleMarker([p.lat, p.lon], { radius: 4, color: col, fillColor: col, fillOpacity: 0.82, weight: 1, opacity: 0.95 });
+    m.bindPopup(function () { return participantPopup(p); }, { maxWidth: 340 });
+    items.push({ kind: "p", rec: p, marker: m, group: groups[p.cat] });
+  });
+  var waterCats = Array.from(new Set(window.WATER_SOURCES.map(function (w) { return w.cat; }).filter(Boolean))).sort();
+  waterCats.forEach(function (c) { ensureGroup("Water Source: " + c, "Available water sources", waterLabel(c), waterColor(c), c.split("_")[0], "diamond"); });
+  window.WATER_SOURCES.forEach(function (w) {
+    if (!w.cat) return;
+    var m = L.marker([w.lat, w.lon], { icon: svgIcon(waterColor(w.cat), w.abbr || w.cat.split("_")[0], "diamond") });
+    m.bindPopup(function () { return waterPopup(w); }, { maxWidth: 340 });
+    m.bindTooltip("Water Source ID: " + w.id + " | " + w.cat + " | EC: " + (w.ec === null ? "NA" : w.ec) + " | " + (w.vil || ""), { sticky: true });
+    items.push({ kind: "w", rec: w, marker: m, group: groups["Water Source: " + w.cat] });
+  });
+  var actorTypes = Array.from(new Set(window.ACTORS.map(function (a) { return a.type; }))).sort();
+  actorTypes.forEach(function (t) { ensureGroup("Actor: " + t, "Intervention actors", ACTOR_LABEL[t] || t, ACTOR_COLORS[t] || "#7F7F7F", ACTOR_SYMBOL[t] || "A", "square"); });
+  window.ACTORS.forEach(function (a) {
+    var kp = (a.opt && a.opt["Institution"]) || "";
+    var m = L.marker([a.lat, a.lon], { icon: svgIcon(ACTOR_COLORS[a.type] || "#7F7F7F", ACTOR_SYMBOL[a.type] || "A", "rounded-square") });
+    m.bindPopup(function () { return actorPopup(a); }, { maxWidth: 340 });
+    m.bindTooltip(a.type + " | " + kp + " | " + (a.vil || ""), { sticky: true });
+    items.push({ kind: "a", rec: a, marker: m, group: groups["Actor: " + a.type] });
+  });
+
+  /* ---------- layer control (top-right): basemaps, boundary, grouped overlays ---------- */
+  var overlays = { "Koyra boundary": boundary };
+  meta.forEach(function (m) { overlays[m.group] = groups[m.group]; });
+  var layersControl = L.control.layers({ "Satellite": satellite, "Street Map": street }, overlays, { collapsed: window.innerWidth < 600, position: "topright" }).addTo(map);
+  Object.keys(groups).forEach(function (k) { groups[k].addTo(map); });
+
+  function initGroupedLayerControl() {
+    var el = map.getContainer();
+    var ov = el.querySelector(".leaflet-control-layers-overlays");
+    if (!ov || ov.dataset.groupedControlReady === "true") return;
+    ov.dataset.groupedControlReady = "true";
+    var byGroup = {}; meta.forEach(function (i) { byGroup[i.group] = i; });
+    var labelByGroup = {};
+    Array.from(ov.querySelectorAll("label")).forEach(function (l) { var n = l.textContent.trim(); if (byGroup[n]) labelByGroup[n] = l; });
+    var master = document.createElement("div");
+    master.className = "layer-master-actions";
+    master.innerHTML = '<button type="button" class="layer-master-select">Select All</button><button type="button" class="layer-master-clear">Clear All</button>';
+    ov.insertBefore(master, ov.firstChild);
+    function setGroups(names, sel) { names.forEach(function (n) { var l = labelByGroup[n]; if (!l) return; var i = l.querySelector("input"); if (!i) return; if (sel && !i.checked) i.click(); if (!sel && i.checked) i.click(); }); }
+    master.querySelector(".layer-master-select").addEventListener("click", function () { setGroups(meta.map(function (i) { return i.group; }), true); });
+    master.querySelector(".layer-master-clear").addEventListener("click", function () { setGroups(meta.map(function (i) { return i.group; }), false); });
+    ["Participant categories", "Available water sources", "Intervention actors"].forEach(function (sec) {
+      var its = meta.filter(function (i) { return i.section === sec; });
+      var labels = its.map(function (i) { return labelByGroup[i.group]; }).filter(Boolean);
+      if (!labels.length) return;
+      var h = document.createElement("div"); h.className = "layer-section-header";
+      h.innerHTML = '<div class="layer-section-title">' + sec + '</div><div class="layer-section-actions"><button type="button" class="section-select">Select</button><button type="button" class="section-clear">Clear</button></div>';
+      ov.insertBefore(h, labels[0]);
+      h.querySelector(".section-select").addEventListener("click", function () { setGroups(its.map(function (i) { return i.group; }), true); });
+      h.querySelector(".section-clear").addEventListener("click", function () { setGroups(its.map(function (i) { return i.group; }), false); });
+      its.forEach(function (it) {
+        var l = labelByGroup[it.group]; if (!l) return;
+        var input = l.querySelector("input"); if (!input) return;
+        l.classList.add("grouped-layer-row"); l.innerHTML = "";
+        var row = document.createElement("span"); row.className = "grouped-layer-row-inner"; row.appendChild(input);
+        var sym = document.createElement("span"); sym.className = "layer-symbol layer-symbol-" + it.shape; sym.style.backgroundColor = it.colour;
+        if (it.symbol) { var st = document.createElement("span"); st.className = "layer-symbol-text"; st.textContent = it.symbol; sym.appendChild(st); }
+        var tx = document.createElement("span"); tx.className = "layer-display-text"; tx.textContent = it.display_label;
+        row.appendChild(sym); row.appendChild(tx); l.appendChild(row);
+      });
+    });
+  }
+  initGroupedLayerControl();
+
+  /* ---------- filter state ---------- */
+  var ccList = Array.from(new Set(window.PARTICIPANTS.map(function (p) { return p.cc; }))).sort(function (a, b) { return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }); });
+  var clusterCC = {};  window.PARTICIPANTS.forEach(function (p) { clusterCC[p.cl] = p.cc; });
+  var ccClusters = {}; Object.keys(clusterCC).forEach(function (c) { (ccClusters[clusterCC[c]] = ccClusters[clusterCC[c]] || []).push(c); });
+  function nsort(a, b) { return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }); }
+  Object.keys(ccClusters).forEach(function (k) { ccClusters[k].sort(nsort); });
+  var selCC = new Set(ccList), selCL = new Set(Object.keys(clusterCC));
+
+  function availableClusters() { var out = []; ccList.forEach(function (cc) { if (selCC.has(cc)) out = out.concat(ccClusters[cc] || []); }); return out.sort(nsort); }
+  function narrowed(cc) { return (ccClusters[cc] || []).some(function (c) { return !selCL.has(c); }); }
+  function visible(it) {
+    var r = it.rec;
+    if (!selCC.has(r.cc)) return false;
+    if (it.kind === "p") return selCL.has(r.cl);
+    if (r.cls && r.cls.length) return r.cls.some(function (c) { return selCL.has(c); });
+    return !narrowed(r.cc);   // water source / actor whose village has no participant cluster: follows its clinic only
+  }
+  var state = { shown: new Set() };
+  function applyFilters() {
+    var counts = { p: 0, w: 0, a: 0, hi: 0, lo: 0, cat: {} };
+    CAT_ORDER.forEach(function (c) { counts.cat[c] = 0; });
+    items.forEach(function (it) {
+      var v = visible(it);
+      if (v) { if (!it.group.hasLayer(it.marker)) it.group.addLayer(it.marker); counts[it.kind]++; if (it.kind === "w") { if (it.rec.sal === "HighSaline") counts.hi++; if (it.rec.sal === "LowSaline") counts.lo++; } if (it.kind === "p") counts.cat[it.rec.cat]++; }
+      else if (it.group.hasLayer(it.marker)) it.group.removeLayer(it.marker);
+    });
+    var f = function (n) { return n.toLocaleString("en-US"); };
+    document.getElementById("summary").textContent = "Selected CCs: " + selCC.size + "\nSelected clusters: " + selCL.size + "\nParticipants: " + f(counts.p) +
+      CAT_ORDER.map(function (c) { return "\n   " + c.replace(/_/g, " ") + ": " + f(counts.cat[c]); }).join("") +
+      "\nIntervention actors: " + f(counts.a) + "\nMapped water sources: " + f(counts.w) + "\nHigh saline sources: " + f(counts.hi) + "\nLow saline sources: " + f(counts.lo);
+    window.__counts = counts;
+  }
+
+  /* ---------- multi-select widget ---------- */
+  function MultiSelect(root, placeholder, onChange) {
+    var box = document.createElement("div"); box.className = "ms-box";
+    var input = document.createElement("input"); input.className = "ms-input"; input.type = "text"; input.placeholder = placeholder; input.setAttribute("aria-label", placeholder);
+    var drop = document.createElement("div"); drop.className = "ms-drop";
+    box.appendChild(input); root.appendChild(box); root.appendChild(drop);
+    var options = [], selected = new Set(), active = 0;
+    function render() {
+      Array.from(box.querySelectorAll(".ms-chip")).forEach(function (c) { c.remove(); });
+      options.filter(function (o) { return selected.has(o); }).forEach(function (o) {
+        var chip = document.createElement("span"); chip.className = "ms-chip"; chip.dataset.value = o;
+        chip.appendChild(document.createTextNode(o));
+        var b = document.createElement("button"); b.type = "button"; b.textContent = "×"; b.title = "Remove"; b.setAttribute("aria-label", "Remove " + o);
+        b.addEventListener("click", function (e) { e.stopPropagation(); selected.delete(o); render(); onChange(new Set(selected), "remove", o); });
+        chip.appendChild(b); box.insertBefore(chip, input);
+      });
+      var q = input.value.trim().toLowerCase();
+      var avail = options.filter(function (o) { return !selected.has(o) && o.toLowerCase().indexOf(q) !== -1; });
+      drop.innerHTML = "";
+      if (!avail.length) { var e = document.createElement("div"); e.className = "ms-empty"; e.textContent = options.length === selected.size ? "All options selected" : "No matches"; drop.appendChild(e); }
+      avail.forEach(function (o, i) {
+        var d = document.createElement("div"); d.className = "ms-opt" + (i === active ? " active" : ""); d.textContent = o; d.dataset.value = o;
+        d.addEventListener("mousedown", function (e) { e.preventDefault(); pick(o); });
+        drop.appendChild(d);
+      });
+    }
+    function pick(o) { selected.add(o); input.value = ""; active = 0; root.classList.remove("open"); render(); onChange(new Set(selected), "add", o); }   // closeAfterSelect
+    box.addEventListener("click", function () { input.focus(); root.classList.add("open"); render(); });
+    input.addEventListener("focus", function () { root.classList.add("open"); render(); });
+    input.addEventListener("blur", function () { setTimeout(function () { root.classList.remove("open"); }, 120); });
+    input.addEventListener("input", function () { active = 0; root.classList.add("open"); render(); });
+    input.addEventListener("keydown", function (e) {
+      var opts = drop.querySelectorAll(".ms-opt");
+      if (e.key === "ArrowDown") { active = Math.min(active + 1, opts.length - 1); render(); e.preventDefault(); }
+      else if (e.key === "ArrowUp") { active = Math.max(active - 1, 0); render(); e.preventDefault(); }
+      else if (e.key === "Enter") { if (opts[active]) pick(opts[active].dataset.value); e.preventDefault(); }
+      else if (e.key === "Escape") { input.blur(); }
+      else if (e.key === "Backspace" && !input.value) { var arr = options.filter(function (o) { return selected.has(o); }); if (arr.length) { var last = arr[arr.length - 1]; selected.delete(last); render(); onChange(new Set(selected), "remove", last); } }
+    });
+    return { set: function (opts, sel) { options = opts.slice(); selected = new Set(sel); render(); }, get: function () { return new Set(selected); } };
+  }
+
+  var ccWidget = MultiSelect(document.getElementById("ms-cc"), "Type or select community clinic", function (sel, act, o) {
+    var prev = selCC; selCC = sel;
+    if (act === "add") (ccClusters[o] || []).forEach(function (c) { selCL.add(c); });
+    if (act === "remove") (ccClusters[o] || []).forEach(function (c) { selCL.delete(c); });
+    refreshClusterWidget(); applyFilters();
+  });
+  var clWidget = MultiSelect(document.getElementById("ms-cl"), "Type or select cluster names", function (sel) { selCL = sel; applyFilters(); });
+  function refreshClusterWidget() { var av = availableClusters(); var s = new Set(); av.forEach(function (c) { if (selCL.has(c)) s.add(c); }); selCL = s; clWidget.set(av, s); }
+  function refreshAll() { ccWidget.set(ccList, selCC); refreshClusterWidget(); applyFilters(); }
+
+  document.getElementById("cc-all").addEventListener("click", function () { selCC = new Set(ccList); ccList.forEach(function (cc) { (ccClusters[cc] || []).forEach(function (c) { selCL.add(c); }); }); refreshAll(); });
+  document.getElementById("cc-none").addEventListener("click", function () { selCC = new Set(); selCL = new Set(); refreshAll(); });
+  document.getElementById("cl-all").addEventListener("click", function () { availableClusters().forEach(function (c) { selCL.add(c); }); refreshAll(); });
+  document.getElementById("cl-none").addEventListener("click", function () { availableClusters().forEach(function (c) { selCL.delete(c); }); refreshAll(); });
+
+  refreshAll();
+  window.__baseline = { map: map, satellite: satellite, street: street, boundary: boundary, groups: groups, items: items, state: function () { return { cc: Array.from(selCC), cl: Array.from(selCL) }; } };
+  window.addEventListener("load", function () { map.invalidateSize(); });
+})();
+</script>
+</body>
+</html>
